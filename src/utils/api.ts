@@ -5,11 +5,10 @@
 const DEFAULT_LIVE_SITE_URL = 'https://chemi-surveys-and-mapping-consultants.vercel.app';
 
 export function getApiBaseUrl() {
-  return (
-    localStorage.getItem('csmc_api_url_override') ||
-    import.meta.env.VITE_API_URL ||
-    (import.meta.env.DEV ? 'http://localhost:4000' : '')
-  ).replace(/\/+$/, '');
+  const override = localStorage.getItem('csmc_api_url_override');
+  if (override) return override.replace(/\/+$/, '');
+  if (import.meta.env.PROD) return '';
+  return (import.meta.env.VITE_API_URL || 'http://localhost:4000').replace(/\/+$/, '');
 }
 
 export function getLiveSiteUrl() {
@@ -26,7 +25,9 @@ async function request<T>(
 ): Promise<T> {
   const token = getToken();
   const base = getApiBaseUrl();
-  if (!base) throw new Error('VITE_API_URL is not configured for this deployment.');
+  if (!base && import.meta.env.DEV) {
+    throw new Error('VITE_API_URL is not configured for this deployment.');
+  }
   const res = await fetch(`${base}${path}`, {
     ...options,
     headers: {
@@ -59,7 +60,7 @@ async function trpc<T>(
   } else {
     const data = await request<any>(`/trpc/${procedure}`, {
       method: 'POST',
-      body: JSON.stringify({ json: input }),
+      body: JSON.stringify(input),
     });
     if (data?.error || data?.[0]?.error) {
       const msg = data?.error?.message || data?.[0]?.error?.message || 'tRPC error';
